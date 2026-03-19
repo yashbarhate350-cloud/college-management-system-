@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Create Event — CampusPulse{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-7">
+
+      <div class="mb-4">
+        <a href="/committee" class="btn-outline"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+      </div>
+
+      <div class="mb-4">
+        <p class="section-label">Committee Portal</p>
+        <h1 style="font-family:var(--font-head); font-weight:800; font-size:2rem;">Create New Event</h1>
+      </div>
+
+      <div class="form-card">
+        <form method="POST">
+          <div class="row g-4">
+            <div class="col-12">
+              <label class="form-label">Event Title</label>
+              <input type="text" name="title" class="form-control" placeholder="e.g. TechFest 2024" required/>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Description</label>
+              <textarea name="description" class="form-control" rows="4"
+                placeholder="What is this event about? Who should attend?" style="resize:vertical;"></textarea>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Date</label>
+              <input type="date" name="date" class="form-control" required/>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Time</label>
+              <input type="time" name="time" class="form-control" required/>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Venue</label>
+              <input type="text" name="venue" class="form-control" placeholder="e.g. Main Auditorium, Lab Block 2" required/>
+            </div>
+
+            <div class="col-12 mt-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-calendar-plus-fill me-2"></i>Create Event
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -6,7 +6,8 @@ import os
 
 app = Flask(__name__)
 app.secret_key = 'college_events_secret_2024'
-DATABASE = 'college_events.db'
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DATABASE = os.path.join(BASE_DIR, 'college_events.db')
 
 # ─── DB Helpers ───────────────────────────────────────────────────────────────
 
@@ -114,7 +115,8 @@ def home():
 def event_detail(event_id):
     conn = get_db()
     event = conn.execute(
-        "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id WHERE e.id=?", (event_id,)
+        "SELECT e.*, COALESCE(u.name, 'Unknown') as committee "
+        "FROM events e LEFT JOIN users u ON e.created_by=u.id WHERE e.id=?", (event_id,)
     ).fetchone()
     if not event:
         conn.close()
@@ -201,7 +203,10 @@ def edit_event(event_id):
     if 'user_id' not in session or session.get('role') not in ('committee', 'admin'):
         return redirect(url_for('login'))
     conn = get_db()
-    event = conn.execute("SELECT * FROM events WHERE id=? AND created_by=?", (event_id, session['user_id'])).fetchone()
+    if session.get('role') == 'admin':
+        event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+    else:
+        event = conn.execute("SELECT * FROM events WHERE id=? AND created_by=?", (event_id, session['user_id'])).fetchone()
     if not event:
         conn.close()
         return redirect(url_for('committee_dashboard'))
@@ -223,8 +228,16 @@ def post_update(event_id):
         return redirect(url_for('login'))
     message = request.form.get('message', '').strip()
     if message:
-        ts = datetime.now().strftime('%H:%M')
         conn = get_db()
+        event = conn.execute('SELECT * FROM events WHERE id=?', (event_id,)).fetchone()
+        if not event:
+            conn.close()
+            return redirect(url_for('committee_dashboard'))
+        if session.get('role') != 'admin' and event['created_by'] != session['user_id']:
+            conn.close()
+            return redirect(url_for('committee_dashboard'))
+
+        ts = datetime.now().strftime('%H:%M')
         conn.execute("INSERT INTO event_updates (event_id, message, timestamp) VALUES (?,?,?)",
                      (event_id, message, ts))
         conn.commit()
@@ -266,9 +279,11 @@ def add_user():
                      (request.form['name'], request.form['email'],
                       hash_pw(request.form['password']), request.form['role']))
         conn.commit()
-    except:
+    except sqlite3.IntegrityError:
+        # Duplicate email or bad data; graceful fallback
         pass
-    conn.close()
+    finally:
+        conn.close()
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])

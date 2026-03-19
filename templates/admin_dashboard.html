@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard — CampusPulse{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+
+  <div class="mb-5">
+    <p class="section-label">System Administration</p>
+    <h1 style="font-family:var(--font-head); font-weight:800; font-size:2.2rem;">Admin Dashboard</h1>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-5">
+    {% set live_count = events|selectattr('status','equalto','live')|list|length %}
+    {% set upcoming_count = events|selectattr('status','equalto','upcoming')|list|length %}
+    {% set completed_count = events|selectattr('status','equalto','completed')|list|length %}
+
+    <div class="col-6 col-md-3">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--accent);">{{ events|length }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Total Events</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--live);">{{ live_count }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Live Now</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--upcoming);">{{ upcoming_count }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Upcoming</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--muted);">{{ users|length }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Users</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- All Events -->
+  <div class="mb-4">
+    <h2 style="font-family:var(--font-head); font-weight:700; font-size:1.4rem;">All Events</h2>
+  </div>
+
+  <div class="form-card p-0 overflow-hidden mb-5">
+    {% if events %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Event</th>
+          <th>Committee</th>
+          <th>Date</th>
+          <th>Venue</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+        <tr>
+          <td style="color:var(--muted); font-size:0.8rem;">{{ event.id }}</td>
+          <td>
+            <div style="font-weight:600;">{{ event.title }}</div>
+          </td>
+          <td style="color:var(--muted); font-size:0.85rem;">{{ event.committee }}</td>
+          <td style="color:var(--muted); font-size:0.85rem;">{{ event.date }}</td>
+          <td style="color:var(--muted); font-size:0.85rem;">{{ event.venue }}</td>
+          <td>
+            {% if event.status == 'live' %}
+              <span class="status-badge status-live">Live</span>
+            {% elif event.status == 'upcoming' %}
+              <span class="status-badge status-upcoming">Upcoming</span>
+            {% else %}
+              <span class="status-badge status-completed">Completed</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="d-flex gap-2">
+              <a href="/event/{{ event.id }}" class="btn-outline" style="font-size:0.78rem; padding:3px 10px;">
+                <i class="bi bi-eye-fill"></i>
+              </a>
+              <form method="POST" action="/admin/delete/{{ event.id }}"
+                    onsubmit="return confirm('Delete this event?')">
+                <button type="submit" class="btn btn-danger" style="font-size:0.78rem; padding:3px 10px;">
+                  <i class="bi bi-trash-fill"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><i class="bi bi-calendar-x"></i><p>No events found.</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Users Management -->
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="mb-3">
+        <h2 style="font-family:var(--font-head); font-weight:700; font-size:1.4rem;">Manage Users</h2>
+      </div>
+      <div class="form-card p-0 overflow-hidden">
+        <table class="data-table">
+          <thead>
+            <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr>
+              <td style="color:var(--muted); font-size:0.8rem;">{{ user.id }}</td>
+              <td style="font-weight:600;">{{ user.name }}</td>
+              <td style="color:var(--muted); font-size:0.85rem;">{{ user.email }}</td>
+              <td>
+                <span class="role-tag role-{{ user.role }}">{{ user.role }}</span>
+              </td>
+              <td>
+                {% if user.role != 'admin' %}
+                <form method="POST" action="/admin/delete_user/{{ user.id }}"
+                      onsubmit="return confirm('Remove this user?')">
+                  <button type="submit" class="btn btn-danger" style="font-size:0.78rem; padding:3px 10px;">
+                    <i class="bi bi-person-x-fill"></i>
+                  </button>
+                </form>
+                {% else %}
+                <span style="font-size:0.75rem; color:var(--muted);">Protected</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="mb-3">
+        <h2 style="font-family:var(--font-head); font-weight:700; font-size:1.4rem;">Add User</h2>
+      </div>
+      <div class="form-card">
+        <form method="POST" action="/admin/add_user">
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input type="text" name="name" class="form-control" placeholder="Committee Name" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" placeholder="user@college.edu" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" placeholder="••••••••" required/>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Role</label>
+            <select name="role" class="form-select">
+              <option value="committee">Committee</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-person-plus-fill me-2"></i>Add User
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
