@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Student Dashboard — CampusPulse{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+
+  <!-- Welcome Header -->
+  <div class="mb-5">
+    <p class="section-label">Student Portal</p>
+    <h1 style="font-family:var(--font-head); font-weight:800; font-size:2rem; color:var(--text);">
+      Welcome, {{ session.student_name }}! 👋
+    </h1>
+    <p style="color:var(--muted);">Here's everything happening on campus right now.</p>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="row g-3 mb-5">
+    <div class="col-6 col-md-4">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--accent);">{{ live|length }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Live Now</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--upcoming);">{{ upcoming|length }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Upcoming</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4">
+      <div class="form-card text-center" style="padding:1.5rem;">
+        <div style="font-family:var(--font-head); font-weight:800; font-size:2.5rem; color:var(--completed);">{{ completed|length }}</div>
+        <div style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Completed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE EVENTS -->
+  {% if live %}
+  <div class="mb-4">
+    <div class="live-banner">
+      <div class="live-dot"></div>
+      <div>
+        <strong style="color:var(--live)">{{ live|length }} event{{ 's' if live|length != 1 }} happening right now</strong>
+        <span style="color:var(--muted); font-size:0.9rem; margin-left:8px;">Click to see live updates</span>
+      </div>
+    </div>
+    <div class="row g-3">
+      {% for event in live %}
+      <div class="col-md-6 col-lg-4">
+        <a href="/event/{{ event.id }}" class="event-card live-card d-block text-decoration-none">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="status-badge status-live">Live</span>
+            <span class="committee-tag">{{ event.committee }}</span>
+          </div>
+          <div class="event-card-title">{{ event.title }}</div>
+          <p style="font-size:0.85rem; color:var(--muted); margin:0.4rem 0 0.8rem; line-height:1.5;">
+            {{ event.description[:80] }}{% if event.description|length > 80 %}…{% endif %}
+          </p>
+          <div class="event-meta">
+            <span class="meta-item"><i class="bi bi-geo-alt-fill"></i>{{ event.venue }}</span>
+            <span class="meta-item"><i class="bi bi-clock-fill"></i>{{ event.time }}</span>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <hr class="section-divider">
+  {% endif %}
+
+  <!-- UPCOMING EVENTS -->
+  <div class="mb-5">
+    <div class="mb-4">
+      <p class="section-label">Upcoming</p>
+      <h2 class="section-title">Events to look forward to</h2>
+    </div>
+    {% if upcoming %}
+    <div class="row g-3">
+      {% for event in upcoming %}
+      <div class="col-md-6 col-lg-4">
+        <a href="/event/{{ event.id }}" class="event-card d-block text-decoration-none">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="status-badge status-upcoming">Upcoming</span>
+            <span class="committee-tag">{{ event.committee }}</span>
+          </div>
+          <div class="event-card-title">{{ event.title }}</div>
+          <p style="font-size:0.85rem; color:var(--muted); margin:0.4rem 0 0.8rem; line-height:1.5;">
+            {{ event.description[:80] }}{% if event.description|length > 80 %}…{% endif %}
+          </p>
+          <div class="event-meta">
+            <span class="meta-item"><i class="bi bi-geo-alt-fill"></i>{{ event.venue }}</span>
+            <span class="meta-item"><i class="bi bi-calendar-fill"></i>{{ event.date }}</span>
+            <span class="meta-item"><i class="bi bi-clock-fill"></i>{{ event.time }}</span>
+          </div>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <i class="bi bi-calendar-x"></i>
+      <p>No upcoming events right now. Check back soon!</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- COMPLETED EVENTS -->
+  {% if completed %}
+  <hr class="section-divider">
+  <div class="mb-4">
+    <p class="section-label">Past Events</p>
+    <h2 class="section-title">Completed Events</h2>
+  </div>
+  <div class="row g-3">
+    {% for event in completed %}
+    <div class="col-md-6 col-lg-4">
+      <a href="/event/{{ event.id }}" class="event-card d-block text-decoration-none" style="opacity:0.75;">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <span class="status-badge status-completed">Completed</span>
+          <span class="committee-tag">{{ event.committee }}</span>
+        </div>
+        <div class="event-card-title">{{ event.title }}</div>
+        <div class="event-meta">
+          <span class="meta-item"><i class="bi bi-calendar-fill"></i>{{ event.date }}</span>
+          <span class="meta-item"><i class="bi bi-geo-alt-fill"></i>{{ event.venue }}</span>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -10,10 +10,7 @@
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet"/>
 </head>
 <body>
-<style>
-  body { background: #0a0a0f !important; color: #e8e8f0 !important; }
-  .btn-primary { background: #ff6b35 !important; color: white !important; border: none !important; padding: 0.65rem 1.5rem !important; border-radius: 10px !important; font-weight: 600 !important; text-decoration: none !important; display: inline-block !important; }
-</style>
+
 <nav class="navbar navbar-expand-lg">
   <div class="container">
     <a class="navbar-brand" href="/">
@@ -27,7 +24,20 @@
         <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
       </ul>
       <ul class="navbar-nav">
-        {% if session.user_id %}
+
+        {% if session.student_id %}
+          <!-- Logged in as Student -->
+          <li class="nav-item d-flex align-items-center me-3">
+            <span class="user-badge">
+              <i class="bi bi-mortarboard-fill"></i> {{ session.student_name }}
+              <span class="role-tag" style="background:rgba(30,132,73,0.15); color:#1e8449; border:1px solid #1e8449;">student</span>
+            </span>
+          </li>
+          <li class="nav-item"><a class="nav-link" href="/student/dashboard"><i class="bi bi-grid-fill"></i> My Dashboard</a></li>
+          <li class="nav-item"><a class="nav-link btn-logout" href="/student/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+
+        {% elif session.user_id %}
+          <!-- Logged in as Staff/Admin -->
           <li class="nav-item d-flex align-items-center me-3">
             <span class="user-badge">
               <i class="bi bi-person-fill"></i> {{ session.name }}
@@ -41,9 +51,13 @@
             <li class="nav-item"><a class="nav-link" href="/committee"><i class="bi bi-layout-text-sidebar"></i> Dashboard</a></li>
           {% endif %}
           <li class="nav-item"><a class="nav-link btn-logout" href="/logout"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+
         {% else %}
-          <li class="nav-item"><a class="nav-link btn-login" href="/login"><i class="bi bi-person-lock"></i> Login</a></li>
+          <!-- Not logged in -->
+          <li class="nav-item"><a class="nav-link btn-login me-2" href="/student/login"><i class="bi bi-mortarboard-fill"></i> Student Login</a></li>
+          <li class="nav-item"><a class="nav-link" href="/login" style="color:#d6eaf8 !important;"><i class="bi bi-person-lock"></i> Staff Login</a></li>
         {% endif %}
+
       </ul>
     </div>
   </div>

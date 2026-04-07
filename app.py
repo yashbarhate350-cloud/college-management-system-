@@ -6,10 +6,7 @@ import os
 
 app = Flask(__name__)
 app.secret_key = 'college_events_secret_2024'
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-DATABASE = os.path.join(BASE_DIR, 'college_events.db')
-
-# ─── DB Helpers ───────────────────────────────────────────────────────────────
+DATABASE = 'college_events.db'
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
@@ -26,6 +23,16 @@ def init_db():
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'committee'
+    )''')
+
+    c.execute('''CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        roll_no TEXT,
+        department TEXT,
+        joined_on TEXT
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS events (
@@ -48,17 +55,14 @@ def init_db():
         FOREIGN KEY(event_id) REFERENCES events(id)
     )''')
 
-    # Seed admin
     admin_pw = hashlib.sha256('admin123'.encode()).hexdigest()
     c.execute("INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?,?,?,?)",
               ('Admin', 'admin@college.edu', admin_pw, 'admin'))
 
-    # Seed committee member
     comm_pw = hashlib.sha256('comm123'.encode()).hexdigest()
     c.execute("INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?,?,?,?)",
               ('Tech Committee', 'tech@college.edu', comm_pw, 'committee'))
 
-    # Seed sample events
     c.execute("SELECT COUNT(*) FROM events")
     if c.fetchone()[0] == 0:
         c.execute("""INSERT INTO events (title, description, venue, date, time, status, created_by)
@@ -82,23 +86,6 @@ def init_db():
 def hash_pw(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-# ─── Auth Helpers ─────────────────────────────────────────────────────────────
-
-def login_required(role=None):
-    from functools import wraps
-    def decorator(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            if 'user_id' not in session:
-                return redirect(url_for('login'))
-            if role and session.get('role') != role:
-                return redirect(url_for('home'))
-            return f(*args, **kwargs)
-        return decorated
-    return decorator
-
-# ─── Public Routes ────────────────────────────────────────────────────────────
-
 @app.route('/')
 def home():
     conn = get_db()
@@ -115,8 +102,7 @@ def home():
 def event_detail(event_id):
     conn = get_db()
     event = conn.execute(
-        "SELECT e.*, COALESCE(u.name, 'Unknown') as committee "
-        "FROM events e LEFT JOIN users u ON e.created_by=u.id WHERE e.id=?", (event_id,)
+        "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id WHERE e.id=?", (event_id,)
     ).fetchone()
     if not event:
         conn.close()
@@ -126,8 +112,6 @@ def event_detail(event_id):
     ).fetchall()
     conn.close()
     return render_template('event_detail.html', event=event, updates=updates)
-
-# ─── AJAX Polling ─────────────────────────────────────────────────────────────
 
 @app.route('/api/updates/<int:event_id>')
 def get_updates(event_id):
@@ -142,8 +126,6 @@ def get_updates(event_id):
         'updates': [{'id': u['id'], 'message': u['message'], 'timestamp': u['timestamp']} for u in updates],
         'status': event['status'] if event else 'unknown'
     })
-
-# ─── Auth Routes ──────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -169,7 +151,71 @@ def logout():
     session.clear()
     return redirect(url_for('home'))
 
-# ─── Committee Routes ─────────────────────────────────────────────────────────
+@app.route('/student/register', methods=['GET', 'POST'])
+def student_register():
+    error = None
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
+        roll_no = request.form.get('roll_no', '').strip()
+        department = request.form.get('department', '').strip()
+        joined_on = datetime.now().strftime('%Y-%m-%d')
+        if not name or not email or not password:
+            error = 'Please fill in all required fields.'
+        else:
+            conn = get_db()
+            try:
+                conn.execute(
+                    "INSERT INTO students (name, email, password, roll_no, department, joined_on) VALUES (?,?,?,?,?,?)",
+                    (name, email, hash_pw(password), roll_no, department, joined_on)
+                )
+                conn.commit()
+                conn.close()
+                return redirect(url_for('student_login'))
+            except sqlite3.IntegrityError:
+                error = 'This email is already registered. Please login instead.'
+                conn.close()
+    return render_template('student_register.html', error=error)
+
+@app.route('/student/login', methods=['GET', 'POST'])
+def student_login():
+    error = None
+    if request.method == 'POST':
+        email = request.form['email']
+        pw = hash_pw(request.form['password'])
+        conn = get_db()
+        student = conn.execute("SELECT * FROM students WHERE email=? AND password=?", (email, pw)).fetchone()
+        conn.close()
+        if student:
+            session['student_id'] = student['id']
+            session['student_name'] = student['name']
+            session['role'] = 'student'
+            return redirect(url_for('student_dashboard'))
+        error = 'Invalid email or password. Please try again.'
+    return render_template('student_login.html', error=error)
+
+@app.route('/student/logout')
+def student_logout():
+    session.clear()
+    return redirect(url_for('home'))
+
+@app.route('/student/dashboard')
+def student_dashboard():
+    if 'student_id' not in session:
+        return redirect(url_for('student_login'))
+    conn = get_db()
+    live = conn.execute(
+        "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id WHERE e.status='live' ORDER BY e.date DESC"
+    ).fetchall()
+    upcoming = conn.execute(
+        "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id WHERE e.status='upcoming' ORDER BY e.date ASC"
+    ).fetchall()
+    completed = conn.execute(
+        "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id WHERE e.status='completed' ORDER BY e.date DESC"
+    ).fetchall()
+    conn.close()
+    return render_template('student_dashboard.html', live=live, upcoming=upcoming, completed=completed)
 
 @app.route('/committee')
 def committee_dashboard():
@@ -204,9 +250,9 @@ def edit_event(event_id):
         return redirect(url_for('login'))
     conn = get_db()
     if session.get('role') == 'admin':
-        event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
-    else:
-        event = conn.execute("SELECT * FROM events WHERE id=? AND created_by=?", (event_id, session['user_id'])).fetchone()
+    event = conn.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone()
+else:
+    event = conn.execute("SELECT * FROM events WHERE id=? AND created_by=?", (event_id, session['user_id'])).fetchone()
     if not event:
         conn.close()
         return redirect(url_for('committee_dashboard'))
@@ -228,23 +274,13 @@ def post_update(event_id):
         return redirect(url_for('login'))
     message = request.form.get('message', '').strip()
     if message:
-        conn = get_db()
-        event = conn.execute('SELECT * FROM events WHERE id=?', (event_id,)).fetchone()
-        if not event:
-            conn.close()
-            return redirect(url_for('committee_dashboard'))
-        if session.get('role') != 'admin' and event['created_by'] != session['user_id']:
-            conn.close()
-            return redirect(url_for('committee_dashboard'))
-
         ts = datetime.now().strftime('%H:%M')
+        conn = get_db()
         conn.execute("INSERT INTO event_updates (event_id, message, timestamp) VALUES (?,?,?)",
                      (event_id, message, ts))
         conn.commit()
         conn.close()
     return redirect(url_for('edit_event', event_id=event_id))
-
-# ─── Admin Routes ─────────────────────────────────────────────────────────────
 
 @app.route('/admin')
 def admin_dashboard():
@@ -255,8 +291,9 @@ def admin_dashboard():
         "SELECT e.*, u.name as committee FROM events e JOIN users u ON e.created_by=u.id ORDER BY e.date DESC"
     ).fetchall()
     users = conn.execute("SELECT * FROM users ORDER BY role").fetchall()
+    students = conn.execute("SELECT * FROM students ORDER BY joined_on DESC").fetchall()
     conn.close()
-    return render_template('admin_dashboard.html', events=events, users=users)
+    return render_template('admin_dashboard.html', events=events, users=users, students=students)
 
 @app.route('/admin/delete/<int:event_id>', methods=['POST'])
 def delete_event(event_id):
@@ -279,11 +316,9 @@ def add_user():
                      (request.form['name'], request.form['email'],
                       hash_pw(request.form['password']), request.form['role']))
         conn.commit()
-    except sqlite3.IntegrityError:
-        # Duplicate email or bad data; graceful fallback
+    except:
         pass
-    finally:
-        conn.close()
+    conn.close()
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/delete_user/<int:user_id>', methods=['POST'])
@@ -292,6 +327,16 @@ def delete_user(user_id):
         return redirect(url_for('login'))
     conn = get_db()
     conn.execute("DELETE FROM users WHERE id=? AND role != 'admin'", (user_id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete_student/<int:student_id>', methods=['POST'])
+def delete_student(student_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    conn = get_db()
+    conn.execute("DELETE FROM students WHERE id=?", (student_id,))
     conn.commit()
     conn.close()
     return redirect(url_for('admin_dashboard'))
